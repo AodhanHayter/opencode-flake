@@ -34,7 +34,7 @@
           # Import the OpenCode package definition
           opencode = import ./package.nix {
             inherit pkgs system;
-            version = "0.1.143";
+            version = "0.1.152";
           };
 
           # Script to verify opencode --version works
