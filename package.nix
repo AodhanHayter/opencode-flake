@@ -80,6 +80,20 @@ pkgs.stdenv.mkDerivation {
   # Dependencies
   nativeBuildInputs = with pkgs; [
     makeWrapper
+  ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+    autoPatchelfHook
+  ];
+
+  buildInputs = with pkgs; [
+    stdenv.cc.cc.lib
+  ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+    glibc
+    zlib
+    openssl
+    libgcc
+  ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+    darwin.apple_sdk.frameworks.Security
+    darwin.apple_sdk.frameworks.SystemConfiguration
   ];
 
   # Environment variables
@@ -112,6 +126,15 @@ pkgs.stdenv.mkDerivation {
     # Create wrapper script
     wrapProgram $out/bin/opencode \
       --set OPENCODE_BIN_PATH $out/lib/node_modules/${platformPackageName}/bin/opencode
+  '';
+
+  # Post-installation fixes for dynamic linking
+  postFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+    # autoPatchelfHook should handle the ELF patching automatically
+    # but we can add additional fixes here if needed
+    
+    # Ensure the actual binary (not just the symlink) is executable
+    chmod +x $out/lib/node_modules/${platformPackageName}/bin/opencode
   '';
 
   meta = with pkgs.lib; {
