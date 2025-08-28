@@ -35,8 +35,8 @@
           opencodeVersion = "0.5.28";
           
           # Import the OpenCode package definition
-          opencode = import ./package.nix {
-            inherit pkgs system;
+          opencode = pkgs.callPackage ./package.nix {
+            inherit system;
             version = opencodeVersion;
           };
 

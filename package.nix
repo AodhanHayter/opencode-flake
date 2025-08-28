@@ -1,130 +1,178 @@
 {
-  pkgs,
+  lib,
+  stdenv,
+  stdenvNoCC,
+  buildGoModule,
+  bun,
+  fetchFromGitHub,
+  makeBinaryWrapper,
+  writableTmpDirAsHomeHook,
   system,
   version,
 }:
 
 let
-  # Helper function to download npm packages
-  fetchNpmPackage =
-    {
-      pname,
-      version,
-      hash,
-      os ? null,
-      cpu ? null,
-    }:
-    pkgs.fetchurl {
-      url = "https://registry.npmjs.org/${pname}/-/${pname}-${version}.tgz";
-      inherit hash;
-    };
-
-  # Map system to npm package architecture
-  getOpencodeArchForSystem =
-    system:
-    let
-      platformMap = {
-        "aarch64-darwin" = {
-          os = "darwin";
-          cpu = "arm64";
-        };
-        "x86_64-darwin" = {
-          os = "darwin";
-          cpu = "x64";
-        };
-        "aarch64-linux" = {
-          os = "linux";
-          cpu = "arm64";
-        };
-        "x86_64-linux" = {
-          os = "linux";
-          cpu = "x64";
-        };
-      };
-    in
-    platformMap.${system} or (throw "Unsupported system: ${system}");
-
-  # Get system-specific parameters
-  systemInfo = getOpencodeArchForSystem system;
-  platformPackageName = "opencode-${systemInfo.os}-${systemInfo.cpu}";
-
-  # Define the hashes for each platform package
-  packageHashes = {
-    "opencode-ai" = "sha256-Bw55+CGAfTwx/I07U61VkyUwTxmZOWZtlcau+Vavlrk=";
-    "opencode-darwin-arm64" = "sha256-kwlaeFIOkMXKLqRDItmX5JLUYcE//tbAgwMOzUoqL2Y=";
-    "opencode-darwin-x64" = "sha256-b1RKVLyLFpWrcdt5S14QakskjH21b70nDZDXFDBfPnY=";
-    "opencode-linux-arm64" = "sha256-jNNQDLJOnxw3k/HNOQl8uEQ8wAe2oCrjsDlQNlZY8og=";
-    "opencode-linux-x64" = "sha256-wrZ+Czyzl6OGSqcMqprRNBr2vncCkjqBvm+QGROX1rc=";
+  bun-target = {
+    "aarch64-darwin" = "bun-darwin-arm64";
+    "aarch64-linux" = "bun-linux-arm64";
+    "x86_64-darwin" = "bun-darwin-x64";
+    "x86_64-linux" = "bun-linux-x64";
   };
-
 in
-pkgs.stdenv.mkDerivation {
+stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode";
   inherit version;
-
-  # Source tarballs
-  src = fetchNpmPackage {
-    pname = "opencode-ai";
-    inherit version;
-    hash = packageHashes."opencode-ai";
+  
+  src = fetchFromGitHub {
+    owner = "sst";
+    repo = "opencode";
+    tag = "v${version}";
+    hash = "sha256-g/qIn9s3yw3zvCuxD4ByHiFWmQ3TclrhFurqXEcIYnY=";
   };
 
-  # Platform-specific binary
-  platformSrc = fetchNpmPackage {
-    pname = platformPackageName;
-    inherit version;
-    hash =
-      packageHashes.${platformPackageName} or (throw "Hash for ${platformPackageName} not defined");
-  };
+  tui = buildGoModule {
+    pname = "opencode-tui";
+    inherit (finalAttrs) version src;
 
-  # Dependencies
-  nativeBuildInputs = with pkgs; [
-    makeWrapper
-  ];
+    modRoot = "packages/tui";
 
-  # Environment variables
-  passthru.exePath = "/bin/opencode";
+    vendorHash = "sha256-78MfWF0HSeLFLGDr1Zh74XeyY71zUmmazgG2MnWPucw=";
 
-  # Unpack the sources
-  unpackPhase = ''
-    tar -xzf $src
-    mkdir -p platform
-    tar -xzf $platformSrc -C platform
-  '';
+    subPackages = [ "cmd/opencode" ];
 
-  # Installation
-  installPhase = ''
-    # Create directories
-    mkdir -p $out/bin
-    mkdir -p $out/lib/node_modules/opencode-ai
-    mkdir -p $out/lib/node_modules/${platformPackageName}
+    env.CGO_ENABLED = 0;
 
-    # Copy main package
-    cp -r package/* $out/lib/node_modules/opencode-ai/
+    ldflags = [
+      "-s"
+      "-X=main.Version=${version}"
+    ];
 
-    # Copy platform-specific package
-    cp -r platform/package/* $out/lib/node_modules/${platformPackageName}/
+    installPhase = ''
+      runHook preInstall
 
-    # Create symlink for the binary
-    ln -s $out/lib/node_modules/${platformPackageName}/bin/opencode $out/bin/opencode
-    chmod +x $out/bin/opencode
+      install -Dm755 $GOPATH/bin/opencode $out/bin/tui
 
-    # Create wrapper script
-    wrapProgram $out/bin/opencode \
-      --set OPENCODE_BIN_PATH $out/lib/node_modules/${platformPackageName}/bin/opencode
-  '';
-
-  meta = with pkgs.lib; {
-    description = "A powerful terminal-based AI assistant for developers";
-    homepage = "https://github.com/sst/opencode";
-    license = licenses.mit;
-    platforms = [ system ];
-    maintainers = [ "aodhan.hayter@gmail.com" ];
-    changelog = "https://github.com/sst/opencode/releases";
-    longDescription = ''
-      OpenCode is an open-source AI developer tool created by SST (Serverless Stack).
-      It acts as a terminal-based assistant that helps with coding tasks, debugging,
-      and project management directly in your terminal.
+      runHook postInstall
     '';
   };
-}
+
+  node_modules = stdenvNoCC.mkDerivation {
+    pname = "opencode-node_modules";
+    inherit (finalAttrs) version src;
+
+    impureEnvVars = lib.fetchers.proxyImpureEnvVars ++ [
+      "GIT_PROXY_COMMAND"
+      "SOCKS_SERVER"
+    ];
+
+    nativeBuildInputs = [
+      bun
+      writableTmpDirAsHomeHook
+    ];
+
+    dontConfigure = true;
+
+    buildPhase = ''
+      runHook preBuild
+
+       export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+
+       # Disable post-install scripts to avoid shebang issues
+       bun install \
+         --filter=opencode \
+         --force \
+         --frozen-lockfile \
+         --ignore-scripts \
+         --no-progress \
+         --production
+
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/node_modules
+      cp -R ./node_modules $out
+
+      runHook postInstall
+    '';
+
+    # Required else we get errors that our fixed-output derivation references store paths
+    dontFixup = true;
+
+    outputHash = "sha256-BZ7rVCcBMTbyYWx5VEfFQo3UguthDgxhIjZ+6T3jrIM=";
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
+  };
+
+  nativeBuildInputs = [
+    bun
+    makeBinaryWrapper
+  ];
+
+  patches = [
+    # Fix Bun path resolution and models macro for Nix environment
+    ./combined-fixes.patch
+  ];
+
+  configurePhase = ''
+    runHook preConfigure
+
+    cp -R ${finalAttrs.node_modules}/node_modules .
+    chmod -R u+w .
+
+    runHook postConfigure
+  '';
+
+  env.NODE_ENV = "build";
+
+  buildPhase = ''
+    runHook preBuild
+
+    bun build \
+      --define OPENCODE_TUI_PATH="'${finalAttrs.tui}/bin/tui'" \
+      --define OPENCODE_VERSION="'${version}'" \
+      --compile \
+      --target=${bun-target.${stdenvNoCC.hostPlatform.system}} \
+      --outfile=opencode \
+      ./packages/opencode/src/index.ts \
+
+    runHook postBuild
+  '';
+
+  dontStrip = true;
+
+  installPhase = ''
+    runHook preInstall
+
+    install -Dm755 opencode $out/bin/opencode
+
+    runHook postInstall
+  '';
+
+  # Execution of commands using bash-tool fail on linux with
+  # Error [ERR_DLOPEN_FAILED]: libstdc++.so.6: cannot open shared object file: No such
+  # file or directory
+  # Thus, we add libstdc++.so.6 manually to LD_LIBRARY_PATH
+  # Also ensure Bun is available in PATH for OpenCode's plugin system
+  postFixup = ''
+    wrapProgram $out/bin/opencode \
+      --set LD_LIBRARY_PATH "${lib.makeLibraryPath [ stdenv.cc.cc.lib ]}" \
+      --prefix PATH : ${bun}/bin
+  '';
+
+  meta = {
+    description = "AI coding agent built for the terminal";
+    longDescription = ''
+      OpenCode is a terminal-based agent that can build anything.
+      It combines a TypeScript/JavaScript core with a Go-based TUI
+      to provide an interactive AI coding experience.
+    '';
+    homepage = "https://github.com/sst/opencode";
+    license = lib.licenses.mit;
+    platforms = lib.platforms.unix;
+    maintainers = [ "aodhan.hayter@gmail.com" ];
+    mainProgram = "opencode";
+  };
+})
