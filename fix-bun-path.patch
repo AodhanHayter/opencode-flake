@@ -1,0 +1,15 @@
+--- a/packages/opencode/src/bun/index.ts
++++ b/packages/opencode/src/bun/index.ts
+@@ -46,7 +46,11 @@ export namespace BunProc {
+   }
+ 
+   export function which() {
+-    return process.execPath
++    // In Nix environments, process.execPath points to the compiled OpenCode binary,
++    // not the Bun runtime. We need to find the actual bun binary in PATH.
++    const bunPath = Bun.which("bun");
++    if (!bunPath) throw new Error('bun not found in PATH');
++    return bunPath;
+   }
+ 
+   export const InstallFailedError = NamedError.create(

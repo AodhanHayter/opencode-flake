@@ -1,0 +1,30 @@
+diff --git c/packages/opencode/src/bun/index.ts i/packages/opencode/src/bun/index.ts
+index cd413ff4..d3ce460e 100644
+--- c/packages/opencode/src/bun/index.ts
++++ i/packages/opencode/src/bun/index.ts
+@@ -46,7 +46,11 @@ export namespace BunProc {
+   }
+ 
+   export function which() {
+-    return process.execPath
++    // In Nix environments, process.execPath points to the compiled OpenCode binary,
++    // not the Bun runtime. We need to find the actual bun binary in PATH.
++    const bunPath = Bun.which("bun");
++    if (!bunPath) throw new Error('bun not found in PATH');
++    return bunPath;
+   }
+ 
+   export const InstallFailedError = NamedError.create(
+diff --git c/packages/opencode/src/provider/models-macro.ts i/packages/opencode/src/provider/models-macro.ts
+index 91a0348e..e822aff0 100644
+--- c/packages/opencode/src/provider/models-macro.ts
++++ i/packages/opencode/src/provider/models-macro.ts
+@@ -1,4 +1,8 @@
+ export async function data() {
++  // For build-time, return empty array to avoid network calls
++  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'build') {
++    return "[]"
++  }
+   const json = await fetch("https://models.dev/api.json").then((x) => x.text())
+   return json
+ }
