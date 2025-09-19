@@ -22,12 +22,12 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode";
-  version = "0.9.11";
+  version = "0.10.0";
   src = fetchFromGitHub {
     owner = "sst";
     repo = "opencode";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-NuVv/NToZGeKyYp2kIvN3j3x+R5ZUrd9VtzuZLaD268=";
+    hash = "sha256-9zHKtOcjVeAnFprG6eAQESv7rvWOLxbbJdexd0PsFz0=";
   };
 
   tui = buildGoModule {
@@ -36,7 +36,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     modRoot = "packages/tui";
 
-    vendorHash = "sha256-KfK3qLt05J2N1DC25E2xyViR+aXsXQ/gEXZoiQ95UuM=";
+    vendorHash = "sha256-H+TybeyyHTbhvTye0PCDcsWkcN8M34EJ2ddxyXEJkZI=";
 
     subPackages = [ "cmd/opencode" ];
 
@@ -103,7 +103,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # Required else we get errors that our fixed-output derivation references store paths
     dontFixup = true;
 
-    outputHash = "sha256-nJY0ntGyw/YyWynNQ6ZO+RFtCM0tqI8zAcH8INSb+74=";
+    outputHash = "sha256-fGf2VldMlxbr9pb3B6zVL+fW1S8bRjefJW+jliTO73A=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
