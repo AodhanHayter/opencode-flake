@@ -1,10 +1,44 @@
 # OpenCode Nix Flake
 
-This repository packages [OpenCode](https://github.com/sst/opencode), a terminal-based AI assistant for developers, as a Nix flake. OpenCode is developed by SST (Serverless Stack) and provides powerful AI-powered coding assistance directly in your terminal.
+> **⚠️ ARCHIVED**: This repository has been archived as OpenCode is now officially maintained in nixpkgs and is more promptly updated there. Please use the official package instead:
+>
+> - **Official Package**: https://search.nixos.org/packages?channel=25.05&query=opencode
+> - **Quick Install**: `nix profile install nixpkgs#opencode`
+> - **NixOS Configuration**: Add `pkgs.opencode` to your `environment.systemPackages`
 
-This flake automatically stays up-to-date with the latest OpenCode releases through automated workflows that run every 6 hours.
+---
 
-## Quick Start
+This repository previously packaged [OpenCode](https://github.com/sst/opencode), a terminal-based AI assistant for developers, as a Nix flake. OpenCode is developed by SST (Serverless Stack) and provides powerful AI-powered coding assistance directly in your terminal.
+
+## Migrating to the Official Package
+
+If you're currently using this flake, please migrate to the official nixpkgs package:
+
+### From Profile Installation
+```bash
+# Remove this flake
+nix profile remove opencode-flake
+
+# Install official package
+nix profile install nixpkgs#opencode
+```
+
+### From NixOS/Home Manager Configuration
+Replace:
+```nix
+inputs.opencode-flake.url = "github:aodhanhayter/opencode-flake";
+```
+
+With:
+```nix
+environment.systemPackages = [ pkgs.opencode ];
+# Or in home-manager:
+home.packages = [ pkgs.opencode ];
+```
+
+## Historical Quick Start
+
+This section is preserved for historical reference:
 
 ```bash
 # Run directly from the flake
