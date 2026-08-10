@@ -1,3 +1,5 @@
+
+
 # OpenCode Nix Flake
 
 This repository packages [OpenCode](https://github.com/sst/opencode), a terminal-based AI assistant for developers, as a Nix flake. OpenCode is developed by SST (Serverless Stack) and provides powerful AI-powered coding assistance directly in your terminal.
@@ -39,14 +41,13 @@ nix profile install github:aodhanhayter/opencode-flake
 
 ## Packaging
 
-This flake builds OpenCode from source, copying the approach from the official nixpkgs build. If you don't require the latest version of opencode, I recommend using the official nixpkgs version as it will likely be more stable and well tested.
+This flake packages OpenCode by downloading **pre-built binaries** from the npm registry, rather than building from source. If you don't require the latest version of opencode, I recommend using the official nixpkgs version as it will likely be more stable and well tested.
 
-- **Source-based builds**: Fetches source code directly from the [sst/opencode](https://github.com/sst/opencode) repository
-- **Multi-component build system**:
-  - **Go TUI Component**: Builds the terminal UI (`packages/tui`) using `buildGoModule`
-  - **TypeScript Core**: Uses Bun to compile the main application logic
-- **Deterministic builds**: Includes a local models patch to avoid network dependencies during build
-- **Cross-platform support**: Supports all major platforms with proper platform-specific library linking
+- **Binary-based packaging**: Downloads pre-compiled tarballs directly from the npm registry
+- **Platform-specific binaries**: Correctly maps and unpacks binaries for each supported system (`opencode-ai` plus platform-specific packages)
+- **FHS directory structure**: Creates a proper Linux filesystem hierarchy structure in the Nix store
+- **Environment setup**: Uses `makeWrapper` to configure necessary environment variables for the binary
+- **Cross-platform support**: Supports all major platforms with proper architecture-to-system mapping
 
 ## Development
 
